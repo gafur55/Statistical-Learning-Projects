@@ -1,0 +1,40 @@
+---
+title: "groupwork6"
+author: "Gafur Mammadov"
+date: "2025-02-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(class)
+```
+
+```{r}
+womenShots <- read.csv("~/Documents/math133/datasets/womenShots.csv")
+summary(womenShots)
+```
+
+```{r}
+womenShots %>% ggplot(aes(x=xj,y=yj,col=Goal))+geom_point()+
+  scale_color_manual(values=c("#FF671D","black"))+
+  labs(x="Horizontal Distance from Goal",y='vertical Distance from Goal')
+```
+
+```{r}
+set.seed(123)  # Ensure reproducibility
+indices <- sample(1:nrow(womenShots), size = 0.7 * nrow(womenShots))
+train_data <- womenShots[indices, ]
+test_data <- womenShots[-indices, ]
+```
+
+```{r}
+goal_knn = knn(train_data[,c("xj","yj")],test_data[,c("xj","yj")],cl=train_data$Goal,k=10)
+head(goal_knn)
+```
+
+```{r}
+sum(goal_knn!=test_data$Goal)/length(test_data$Goal)
+```
+

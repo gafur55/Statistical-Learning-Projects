@@ -1,0 +1,40 @@
+---
+title: "group work 02_07"
+author: "Gafur Mammadov"
+date: "2025-02-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+#install.packages("ISLR2")
+library(ISLR2)
+```
+
+```{r}
+summary(Carseats)
+```
+
+## Question 1
+
+```{r}
+carseats_sales_lm=lm(Sales~.,data=Carseats)
+summary(carseats_sales_lm)
+```
+Seems like CompPrice, Income, Advertising, Price, ShelveLocGood, ShelveLocMedium, Age are highly significant indicators.
+
+## Question 2
+```{r}
+reduced_lm = lm(Sales~. -Population -Education -Urban -US, data=Carseats)
+summary(reduced_lm)
+```
+
+```{r}
+anova(reduced_lm,carseats_sales_lm)
+```
+
+## Question 3
+ShelveLoc has 3 different values - Good, Medium and Bad. We have the coefficients for ShelveLocGood and ShelveLocMedium with 4.835675 and 1.951993 values respectively.
+They both are highly significant.
+We can tell that "Bad" has been considered as the baseline category, So having medium shelveloc would increase the sales by 1.951993 and good by 4.835675 compared to bad shelveloc.

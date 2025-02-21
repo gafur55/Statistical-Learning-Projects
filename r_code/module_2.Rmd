@@ -1,0 +1,136 @@
+---
+title: "Module2"
+author: "Gafur Mammadov"
+date: "2025-02-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+election2016 <- read.csv("~/Documents/math133/datasets/election2016.csv") %>%
+  select(-post_hate.crimes, -pre_hate.crimes)
+```
+
+## Question 1
+### a)
+
+```{r}
+vote_lm = lm(trump.vote~metro+non.citizen+unemployed, data=election2016)
+summary(vote_lm)
+```
+Seems like non.citizen feature is the only one that is significant based on 0.033 p-value.
+
+### b)
+```{r}
+reduced_vote_lm = lm(trump.vote~non.citizen, data=election2016)
+summary(reduced_vote_lm)
+anova(reduced_vote_lm, vote_lm)
+```
+Since the p value is greater than 0.05, we can conclude that adding other predicters does not improve our model
+
+### c)
+```{r}
+all_vote_lm = lm(trump.vote~. -state, data=election2016)
+summary(all_vote_lm)
+anova(reduced_vote_lm, all_vote_lm)
+```
+Anova test also confirms that the full model is better than the reduced model since we have a very low p-value.
+In this model high.school and outcomeRed were significant predictors. And we can also observe that R2 value almost doubled compared to previous SLM. This means that the final model performs much better.
+
+### d)
+
+```{r}
+library(plotly)
+election_3d = plot_ly(election2016, x=~high.school, y=~outcome, z=~trump.vote)
+election_3d %>% add_markers
+```
+Seems like with the blue outcome, the high.school numbers are majorly higher than red outcome.
+
+
+
+## Question 2
+
+### a)
+```{r}
+gapminder <- read.csv("~/Documents/math133/datasets/gapminder.csv")
+filtered_gapminder <- gapminder %>% 
+  filter(year == 2007)
+
+head(filtered_gapminder)
+```
+
+```{r}
+library(ggplot2)
+ggplot(filtered_gapminder, aes(x = continent, y = lifeExp)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Bar Chart", x = "continent", y = "lifeExp") +
+  theme_minimal()
+```
+```{r}
+oceania_out <- filtered_gapminder %>%
+  filter(continent != "Oceania")
+
+ggplot(oceania_out, aes(x = continent, y = lifeExp)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Bar Chart", x = "continent", y = "lifeExp") +
+  theme_minimal()
+```
+### b)
+
+```{r}
+gapminder_lm = lm(lifeExp~pop+gdpPercap+continent, data=oceania_out)
+summary(gapminder_lm)
+```
+We can say that gdpPercap is an important mf :) bc the p-value is low. The p-value of pop is very big, so we can say that it can fuck off. Its coefficient is anyways very small.
+The baseline category for continent is Africa. The features continentAmericas, continentAsia, continentEurope has very low p-values with 1.603e+01, 1.256e+01, 1.518e+01 coefficients respectively. This coefficients indicate how model performs compared to continentAfrica which is the baseline category.
+
+### c)
+```{r}
+oceania_out %>% ggplot(aes(x=gdpPercap,y=continent))+geom_point(shape=1)
+``` 
+we can say that in the order Africa, Americas, Asia and Europe, GDP of values grow. 
+
+#### comparing reduced model to full model
+```{r}
+gapminder_reduced_lm = lm(lifeExp~gdpPercap+continent, data=oceania_out)
+summary(gapminder_reduced_lm)
+anova(gapminder_reduced_lm, gapminder_lm)
+```
+
+#### added the multiplicative effect, compared to reduced model
+```{r}
+gapminder_lm_multiplicative = lm(lifeExp~gdpPercap*continent, data=oceania_out)
+summary(gapminder_lm)
+anova(gapminder_lm_multiplicative, gapminder_reduced_lm)
+```
+
+Seems like adding the multiplication of gdpPercap and continent improves the reduced model slightly.
+
+### d)
+
+```{r}
+ggplot(gapminder, aes(x = gdpPercap, y = lifeExp, color = continent)) +
+  geom_point(alpha = 0.6) +  # Adds scatter points with slight transparency
+  labs(
+    title = "Life Expectancy vs GDP per Capita",
+    x = "GDP per Capita (log scale)",
+    y = "Life Expectancy",
+    color = "Continent"
+  ) +
+  theme_minimal()
+```
+we see that as life expectancy goes higher, in continents where GDP is higher accordingly.
+
+```{r}
+ggplot(gapminder, aes(x = log(gdpPercap), y = lifeExp, color = continent)) +
+  geom_point(alpha = 0.6) +  # Adds scatter points with slight transparency
+  labs(
+    title = "Life Expectancy vs GDP per Capita",
+    x = "GDP per Capita (log scale)",
+    y = "Life Expectancy",
+    color = "Continent"
+  ) +
+  theme_minimal()
+```
+Yes, we still see that there is a growth in life expectancy in the continents with higher GDP

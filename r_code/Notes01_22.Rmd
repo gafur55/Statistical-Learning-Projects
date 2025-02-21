@@ -1,0 +1,118 @@
+---
+title: "Inference to Prediction"
+author: "John Mayberry"
+date: "2025-01-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Predicting new observations
+
+In the last notes, we showed that Beer was a significant predictor of Hotwings by looking at the following SLM 
+
+```{r}
+Beerwings <- read.csv("../datasets/Beerwings.csv")
+bw_lm=lm(Hotwings~Beer,data=Beerwings)
+```
+
+But sometimes establishing a significant correlation between two variables is not nearly as important as using a model to predict new observations. For example, suppose I drink a 16 oz pint of beer (I fully realize that saying a 16 oz pint is redundant). I can enter this into the predict function as new data to get my predicted number of hotwings. 
+
+```{r}
+newdata=data.frame(Beer=16)
+predict(bw_lm,newdata)
+```
+
+I could also get either confidence or prediction intervals the same way as in last notes. The real test of a model then is how well it predicts new data. Before we get into that, a note on some different metrics for model accuracy
+
+## Prediction Metrics on Training Set
+
+The data you use to fit the model is called your training set. We already talked about calculating SSE/MSE/RMSE on training data
+
+```{r}
+n=nrow(Beerwings)
+y=Beerwings$Hotwings
+yhat=predict(bw_lm,Beerwings)
+sse=sum((y-yhat)^2) #sometimes called RSS = residual sum of squares
+mse=sse/n
+rmse=sqrt(mse)
+c(sse,mse,rmse)
+```
+
+We also talked about Mean Absolute Deviation/Error:
+
+```{r}
+mad=mean(abs(y-yhat))
+mad
+```
+
+We have not talked about $R^2$ (sometimes called the Coefficient of Determination but usually R-squared) which is calculated as follows
+
+```{r}
+sst=sum((y-mean(y))^2)
+r2=1-sse/sst
+r2
+```
+
+R2 gives the proportion of variance explained by the model. To explain this, SST (Sum of Squares Total) represents the overall variance in $y$ values. It is the inherent variability in outcomes and the goal is to explain as much of that variance as possible with our models. SSE is the overall error in our model predictions or the variance left after we account for the relationship with our predictor. SSE/SST is therefore the fraction of the overall variance that is NOT explained by the model and 1 - SSE/SST is the fraction that IS explained by our model. A perfect model would have an SSE of 0 and hence, an $R^2$ value of 1. 
+
+Note that $R^2$ is just another way of looking at SSE/MSE/RMSE. Any one of these four is sufficient when comparing models. The advantage of $R^2$ is that it is dimensionless so it could be interpreted more universally. According to chatGPT, here are the some general guidelines for deciding what is "large"
+
+### General Guidelines
+- **Large \( R^2 \)**: \( R^2 \geq 0.7 \)
+  - The model explains a large proportion of the variance in the dependent variable.
+  - Common in fields like physics or engineering, where relationships are often more deterministic.
+  
+- **Moderate \( R^2 \)**: \( 0.3 \leq R^2 < 0.7 \)
+  - The model explains a moderate proportion of variance.
+  - Frequently seen in fields like social sciences, where complex phenomena have many contributing factors.
+
+- **Small \( R^2 \)**: \( R^2 < 0.3 \)
+  - The model explains a small proportion of variance.
+  - Can still be meaningful in fields like psychology or behavioral sciences, especially when the underlying phenomenon is inherently noisy.
+
+### Field-Specific Interpretations
+- **Social Sciences and Behavioral Research**:
+  - \( R^2 \) of 0.1–0.2 may be considered large, depending on the context, because human behavior is complex and influenced by many factors.
+  
+- **Economics**:
+  - \( R^2 \) values are often lower (e.g., 0.1–0.4) because real-world economic data involve many unobserved factors.
+
+- **Natural Sciences**:
+  - Higher \( R^2 \) values (e.g., \( > 0.8 \)) are more common, as the systems studied often involve more predictable relationships.
+
+## Training-Testing Validation
+
+Testing set validation means to split off some fraction of your data (usually 20-30%) for testing how well the model predicts "new data". The observations used for testing are sometimes called the "hold-out" set. In R, this can be done by deciding on the fraction $p$ to use for your training set and then sampling $n*p$ random rows. 
+
+```{r}
+# Decide on fraction to keep for training, in this case 70%
+p=0.7
+# Choose training rows
+train_ind=sample(n,round(n*0.7,0)) 
+#Extract training set
+train_set=Beerwings[train_ind,]
+#Extract testing set
+test_set= Beerwings[-train_ind,]
+```
+
+This would be called a "70-30 split". We fit our model to the training set
+
+```{r}
+train_lm=lm(Beer~Hotwings,data=train_set)
+```
+
+And calculate any validation metrics like R2 on the testing set
+
+```{r}
+y_test=test_set$Beer
+yhat_test=predict(train_lm,test_set)
+sse_test=sum((y_test-yhat_test)^2)
+sst_test=sum((y_test-mean(y_test))^2)
+r2_test=1-sse_test/sst_test
+r2_test
+```
+
+Validation metrics will generally be smaller on the test set BUT less likely to be misleadingly large due to overfitting (more on this topic to come). 

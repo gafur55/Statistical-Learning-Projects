@@ -1,0 +1,126 @@
+---
+title: "Group Work 3"
+author: "Gafur Mammadov"
+date: "2025-01-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+```{r}
+summary(mtcars)
+```
+
+## Problem 1
+```{r}
+mtcars %>% ggplot(aes(x=hp, y=mpg))+
+  geom_point() +
+  labs(x="hp", y="mpg") +
+  geom_smooth(method="lm", color="blue", se=TRUE)
+```
+
+### R squared value
+```{r}
+mpg_lm = lm(mpg~hp, data=mtcars)
+y = mtcars$mpg
+yhat = predict(mpg_lm, mtcars)
+n = nrow(mtcars)
+SSE = sum((y - yhat)^2)
+MSE = SSE/n
+SST = sum((y-mean(y))^2)
+R2 = 1 - SSE/SST
+c(R2)
+```
+
+### Coefficients
+```{r}
+summary(mpg_lm)
+```
+
+Based on the p value of horse power coefficient, we can say that there is highly significant correlation between hp and mpg.
+
+## Problem 2
+
+### mpg vs residuals
+```{r}
+mtcars %>% 
+  mutate(yhat=predict(mpg_lm, mtcars),res=y-yhat) %>%
+  ggplot(aes(x=yhat,y=res))+geom_point()+
+  labs(x="mpg",y="Residuals")
+```
+
+### Log transformations
+```{r}
+ggplot(mtcars, aes(x=hp,y=mpg))+
+  geom_point()+xlab("hp")+ylab("mpg")+
+  scale_x_log10()+
+  scale_y_log10()+
+  geom_smooth(method="lm")
+```
+
+### Log summary
+```{r}
+logmpg_lmhp=lm(log(mpg)~log(hp),data=mtcars)
+summary(logmpg_lmhp)
+```
+
+Since the R2 value went up, it is worth trying to fit the model to an exponential function.
+
+### Graph of the log transofmation
+```{r}
+a= coef(logmpg_lmhp)[1]
+b=coef(logmpg_lmhp)[2]
+ggplot(mtcars, aes(x=hp, y=mpg))+geom_point()+xlab("HP")+ylab("Residuals")+ stat_function(color="red",fun=function(x) exp(a)*x^b)
+```
+
+### Residual plot based on the log transformations
+
+```{r}
+mtcars=mtcars %>% mutate(log_mpg=log(mpg), log_yhat=predict(logmpg_lmhp, mtcars), log_res=log_mpg-log_yhat)
+ggplot(mtcars, aes(x=log_yhat,y=log_res))+geom_point()
+```
+
+The new plot of the residual seems to have less U shape, even though it is not the perfect one. This explains that there is a power relationship between hp and mpg.
+
+## Analyze outliers
+
+```{r}
+n=nrow(mtcars)
+rse=sqrt(sum((mtcars$log_res)^2)/(n-2))
+mtcars=mtcars %>% 
+  mutate(log_stres=log_res/rse)
+ggplot(mtcars,aes(x=yhat,y=log_stres))+
+  geom_point()
+```
+
+```{r}
+ggplot(mtcars,aes(x=log_stres))+geom_histogram(binwidth=0.5,color="black",fill="steelblue")
+```
+
+```{r}
+mtcars[which(mtcars$log_stres<(-2)),]
+```
+
+```{r}
+ggplot(mtcars, aes(x = hp, y = mpg)) +
+  geom_point(aes(color = log_stres < -2), size = 2) +  # Highlight points based on condition
+  scale_color_manual(
+    values = c("black", "red"),
+    labels = c("Typical", "Potential Outlier"),
+    name = "Condition"
+  ) +
+  xlab("hp") +
+  ylab("Residuals") +
+  theme_minimal() +
+  theme(legend.position = "top")  # Move legend to the top for clarity
+```
+
+```{r}
+lm2=lm(log(mpg)~log(hp),data=dplyr::filter(mtcars,log_stres>=-2))
+summary(lm2)
+```
+
+Removing outliers slightly improved R squared value

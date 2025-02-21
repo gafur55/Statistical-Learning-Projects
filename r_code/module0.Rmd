@@ -1,0 +1,55 @@
+---
+title: "module0"
+author: "Gafur Mammadov"
+date: "2025-01-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+```
+
+## Problem 1
+```{r}
+survey_fall2023 <- read.csv("~/Documents/math133/datasets/survey_fall2023.csv")
+head(survey_fall2023)
+```
+
+## Problem 2
+```{r}
+new_dataset <- survey_fall2023 %>%
+  filter(major == "ESB") %>%
+  select(stress_score, marijuana_product_consumption, gpa)
+
+head(new_dataset)
+```
+
+##Problem 3
+
+```{r}
+ggplot(new_dataset, aes(x = stress_score, y = gpa)) +
+  geom_point(color = "blue", size = 2, alpha = 0.7) +
+  labs(title = "Stress Score vs GPA",
+       x = "Stress Score",
+       y = "GPA") 
+```
+
+## Problem 4
+```{r}
+ggplot(new_dataset, aes(x = stress_score)) +
+  geom_histogram(binwidth = 4, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Stress Scores",
+       x = "Stress Score",
+       y = "Frequency") 
+```
+
+## Problem 5
+```{r}
+ggplot(new_dataset, aes(x = factor(marijuana_product_consumption), y = stress_score)) +
+  geom_boxplot(fill = "lightblue", color = "black") +
+  labs(title = "Boxplot of Stress Score by Marijuana Product Consumption",
+       x = "Marijuana Product Consumption",
+       y = "Stress Score")
+```

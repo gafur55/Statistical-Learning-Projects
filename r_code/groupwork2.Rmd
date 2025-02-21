@@ -1,0 +1,101 @@
+---
+title: "groupwork2"
+author: "Gafur Mammadov"
+date: "2025-01-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+##Problem1
+
+```{r}
+Advertising <- read.csv("~/Documents/math133/datasets/Advertising.csv")
+head(Advertising)
+```
+
+```{r}
+ad_lm = lm(sales~TV, data=Advertising)
+y = Advertising$sales
+yhat = predict(ad_lm, Advertising)
+
+n = nrow(Advertising)
+SSE = sum((y - yhat)^2)
+MSE = SSE/n
+RMSE = sqrt(MSE)
+MAD = mean(abs(y-yhat))
+SST = sum((y-mean(y))^2)
+R2 = 1 - SSE/SST
+c(R2)
+```
+```{r}
+ad_radio_lm = lm(sales~radio, data=Advertising)
+y = Advertising$sales
+yhat = predict(ad_radio_lm, Advertising)
+
+n = nrow(Advertising)
+SSE = sum((y - yhat)^2)
+MSE = SSE/n
+RMSE = sqrt(MSE)
+MAD = mean(abs(y-yhat))
+SST = sum((y-mean(y))^2)
+R2 = 1 - SSE/SST
+c(R2)
+```
+```{r}
+ad_paper_lm = lm(sales~newspaper, data=Advertising)
+y = Advertising$sales
+yhat = predict(ad_paper_lm, Advertising)
+
+n = nrow(Advertising)
+SSE = sum((y - yhat)^2)
+MSE = SSE/n
+RMSE = sqrt(MSE)
+MAD = mean(abs(y-yhat))
+SST = sum((y-mean(y))^2)
+R2 = 1 - SSE/SST
+c(R2)
+```
+
+##Problem2
+
+```{r}
+training_indices = sample(n, round(0.8*n, 0))
+training_set = Advertising[training_indices,]
+test_set = Advertising[-training_indices,]
+
+train_lm = lm(sales~TV, data = training_set)
+ytest = test_set$sales
+yhattest = predict(train_lm, test_set)
+
+n = nrow(Advertising)
+SSE = sum((ytest - yhattest)^2)
+MSE = SSE/n
+RMSE = sqrt(MSE)
+MAD = mean(abs(ytest-yhattest))
+SST = sum((ytest-mean(ytest))^2)
+R2 = 1 - SSE/SST
+c(R2)
+```
+
+```{r}
+training_indices = sample(n, round(0.8*n, 0))
+training_set = Advertising[training_indices,]
+test_set = Advertising[-training_indices,]
+
+train_lm = lm(sales~radio, data = training_set)
+ytest = test_set$sales
+yhattest = predict(train_lm, test_set)
+
+n = nrow(Advertising)
+SSE = sum((ytest - yhattest)^2)
+MSE = SSE/n
+RMSE = sqrt(MSE)
+MAD = mean(abs(ytest-yhattest))
+SST = sum((ytest-mean(ytest))^2)
+R2 = 1 - SSE/SST
+c(R2)
+```

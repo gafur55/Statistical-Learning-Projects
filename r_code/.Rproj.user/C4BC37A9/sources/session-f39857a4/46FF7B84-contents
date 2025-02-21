@@ -1,0 +1,67 @@
+---
+title: "groupwork01-31"
+author: "Gafur Mammadov"
+date: "2025-01-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+Credit <- read.csv("~/Documents/math133/datasets/Credit.csv")
+```
+
+```{r}
+credit_full_lm=lm(Balance~Income+Limit+Rating+Cards,data=Credit)
+summary(credit_full_lm)
+```
+
+Based on the p-values, Income and Rating are significantly correlated to the balance
+
+```{r}
+credit_full_reduced_lm=lm(Balance~Income+Rating,data=Credit)
+summary(credit_full_reduced_lm)
+
+Credit %>% 
+  ggplot(aes(x=Income, y=Balance))+
+  geom_point(shape=1)+
+  geom_smooth(method="lm",se=FALSE,col="cyan2")
+```
+
+```{r}
+Credit %>% 
+  ggplot(aes(x=Rating, y=Income))+
+  geom_point(shape=1)+
+  geom_smooth(method="lm",se=FALSE,col="darkorange1")
+```
+
+```{r}
+install.packages("plotly")
+library(plotly)
+adv_3d=plot_ly(Credit,x=~Income,y=~Rating,z=~Balance)
+adv_3d %>% add_markers()
+```
+
+```{r}
+x_values=min(Credit$Income):max(Credit$Income)
+y_values=min(Credit$Rating):max(Credit$Rating)
+xy_grid=expand.grid(Income=x_values,Rating=y_values)
+
+yhat=matrix(predict(credit_full_reduced_lm,xy_grid),
+         nrow=length(x_values),ncol=length(y_values))
+
+adv_3d %>% add_markers(color=I("black")) %>%
+  add_surface(z=~t(yhat),
+              x=~x_values,
+              y=~y_values,
+              colorscale="Rainbow",
+              colorbar = list(title = "Predicted Sales"))
+```
+
+
+```{r}
+y=Credit$Balance
+yhat=predict(credit_full_reduced_lm,Credit)
+res=y-yhat
+plot(yhat,res,xlab="Fitted values",ylab="Residuals")
+```
