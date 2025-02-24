@@ -1,0 +1,35 @@
+---
+title: "group-work-7"
+author: "Gafur Mammadov"
+date: "2025-02-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+framingham <- read.csv("~/Documents/math133/datasets/framingham.csv") %>%
+  drop_na()
+head(framingham)
+```
+
+# 1.Fit a logistic regression model to the variable TenYearCHD based on all the other predictors in the dataset
+```{r}
+chd_glm=glm(TenYearCHD ~ ., family="binomial", data=framingham)
+summary(chd_glm)
+```
+
+# 2.If you hold all other variables fixed, what is the percent change in odds for a Male vs Female getting heart disease?
+```{r}
+exp(coef(chd_glm)[2]*(1))
+```
+If I understood the task correctly, being male would make the variable be equal to 1. In that case there is 74.2% increase in odds of having CHD.
+
+# 3.Suppose that a smoker decides to smoke one less pack per day ( about 20 less cigs per day), holding all other variables constant. What will be the percent changes in their odds of getting heart disease? 
+```{r}
+exp(coef(chd_glm)[6]*(-20))
+```
+smoking a pack less a day decreases the odds of having CHD 30%
