@@ -1,3 +1,8 @@
 # Ignore all dotfiles (except .gitignore)
 .*
 !.gitignore
+# Ignore R project files
+.Rproj.user/
+.RData
+.Rhistory
+python_code/venv
