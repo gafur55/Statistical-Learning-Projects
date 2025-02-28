@@ -1,0 +1,144 @@
+---
+title: "module_3_assesment"
+author: "Gafur Mammadov"
+date: "2025-02-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(class)
+```
+
+## Question 1
+```{r}
+titanic <- read.csv("~/Documents/math133/datasets/titanic.csv")
+titanic <- na.omit(titanic)
+
+titanic$Sex <- as.numeric(as.factor(titanic$Sex))
+
+set.seed(44)
+train_indices <- sample(1:nrow(titanic), size = 0.7 * nrow(titanic))
+
+train_set <- titanic[train_indices,]
+test_set <- titanic[-train_indices,]
+```
+
+### k=5 results
+```{r}
+titanic_knn_5 = knn(train_set[,c("Pclass","Sex", "Age", "Siblings.Spouses.Aboard", "Parents.Children.Aboard", "Fare")], test_set[,c("Pclass","Sex", "Age", "Siblings.Spouses.Aboard", "Parents.Children.Aboard", "Fare")], cl=train_set$Survived, k=5)
+sum(titanic_knn_5!=test_set$Survived)/length(test_set$Survived)
+```
+
+### k=10 results
+```{r}
+titanic_knn_10 = knn(train_set[,c("Pclass","Sex", "Age", "Siblings.Spouses.Aboard", "Parents.Children.Aboard", "Fare")], test_set[,c("Pclass","Sex", "Age", "Siblings.Spouses.Aboard", "Parents.Children.Aboard", "Fare")], cl=train_set$Survived, k=10)
+sum(titanic_knn_10!=test_set$Survived)/length(test_set$Survived)
+```
+
+### k=15 results
+```{r}
+titanic_knn_15 = knn(train_set[,c("Pclass","Sex", "Age", "Siblings.Spouses.Aboard", "Parents.Children.Aboard", "Fare")], test_set[,c("Pclass","Sex", "Age", "Siblings.Spouses.Aboard", "Parents.Children.Aboard", "Fare")], cl=train_set$Survived, k=15)
+sum(titanic_knn_15!=test_set$Survived)/length(test_set$Survived)
+```
+
+The lowest error rate was found with k=10.I did not understand what it means to compare with the null model
+
+## Question 2
+```{r}
+titanic <- read.csv("~/Documents/math133/datasets/titanic.csv")
+titanic <- na.omit(titanic)
+if ("Name" %in% names(titanic)) {
+  titanic <- titanic[, !names(titanic) %in% c("Name")]
+}
+set.seed(44)
+train_indices <- sample(1:nrow(titanic), size = 0.7 * nrow(titanic))
+train_set <- titanic[train_indices,]
+test_set <- titanic[-train_indices,]
+
+titanic_glm=glm(Survived~.,family="binomial",data=train_set)
+summary(titanic_glm)
+```
+
+### Results of Logistic Regression
+```{r}
+test_set$prob = predict(titanic_glm, 
+                    newdata = test_set, 
+                    type = "response")
+test_set$prediction = ifelse(test_set$prob > 0.5, 1, 0)
+er_logistic=sum(test_set$prediction!=test_set$Survived)/length(test_set$Survived)
+er_logistic
+```
+The error rate of logistic regression lower than knn's ER. Which means that Logistic regression is performing better accuracy
+
+## Question 3
+```{r}
+summary(titanic_glm)
+```
+### 1.What is the predicted odds ratio for males compared to females in terms of survival, assuming all other variables are held constant?
+```{r}
+exp(coef(titanic_glm)[3])
+```
+The odds ratio for males compared to females in terms of survival is 0.061.
+Males have 0.061 times the odds of surviving compared to females, holding all other variables constant.
+Since the odds ratio is much less than 1, this means that males are significantly less likely to survive compared to females.
+
+### 2 How does the odds ratio change if the Pclass is increased by one, while holding all other variables constant?
+```{r}
+exp(coef(titanic_glm)[2])
+```
+The odds ratio for an increase of one unit in Pclass is 0.309. In simple terms, moving from 1st class to 3rd class significantly reduces the likelihood of survival.
+
+## Question 3
+```{r}
+conf_matrix_knn <- table(Predicted = titanic_knn_10, Actual = test_set$Survived)
+conf_matrix_knn
+
+conf_matrix_glm <- table(Predicted = test_set$prediction, Actual = test_set$Survived)
+conf_matrix_glm
+
+```
+
+```{r}
+TP_knn <- conf_matrix_knn[2, 2]  
+TN_knn <- conf_matrix_knn[1, 1]  
+FP_knn <- conf_matrix_knn[2, 1] 
+FN_knn <- conf_matrix_knn[1, 2] 
+
+accuracy_knn <- (TP_knn + TN_knn) / sum(conf_matrix_knn)
+precision_knn <- TP_knn / (TP_knn + FP_knn)
+recall_knn <- TP_knn / (TP_knn + FN_knn)
+specificity_knn <- TN_knn / (TN_knn + FP_knn)
+balanced_accuracy_knn <- (recall_knn + specificity_knn) / 2
+
+TP_glm <- conf_matrix_glm[2, 2] 
+TN_glm <- conf_matrix_glm[1, 1] 
+FP_glm <- conf_matrix_glm[2, 1] 
+FN_glm <- conf_matrix_glm[1, 2]  
+
+accuracy_glm <- (TP_glm + TN_glm) / sum(conf_matrix_glm)
+precision_glm <- TP_glm / (TP_glm + FP_glm)
+recall_glm <- TP_glm / (TP_glm + FN_glm)
+specificity_glm <- TN_glm / (TN_glm + FP_glm)
+balanced_accuracy_glm <- (recall_glm + specificity_glm) / 2
+
+list(
+  KNN = list(
+    Confusion_Matrix = conf_matrix_knn,
+    Accuracy = accuracy_knn,
+    Precision = precision_knn,
+    Recall = recall_knn,
+    Specificity = specificity_knn,
+    Balanced_Accuracy = balanced_accuracy_knn
+  ),
+  Logistic_Regression = list(
+    Confusion_Matrix = conf_matrix_glm,
+    Accuracy = accuracy_glm,
+    Precision = precision_glm,
+    Recall = recall_glm,
+    Specificity = specificity_glm,
+    Balanced_Accuracy = balanced_accuracy_glm
+  )
+)
+```

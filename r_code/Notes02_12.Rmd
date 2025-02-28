@@ -1,0 +1,306 @@
+---
+title: "Intro to Classification"
+author: "John Mayberry"
+date: "2/12/2025"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,message=FALSE,warning=FALSE)
+library(tidyverse)
+womenShots <- read.csv("~/Documents/math133/datasets/womenShots.csv")
+```
+
+
+## What is classification?
+
+The womenShots.csv dataset contains positional and situational data on a bunch of shots taken in several NCAA women's water polo games from the 2018-2019 seasons. 
+
+In this scenario, the variable we would like to predict is the binary variable Goal. Ultimately, we would like to build a model for predicting Goal based on all the other variables but we are going to start with the just the variables xj and yj which contain the "jittered" positions of the shots. The coordinates are relative to the center of the goal with the positive y-axis pointing into the pool and the positive x-axis pointed right.  Our model will be of the form
+$$
+Y = f(X) + \varepsilon
+$$
+but now $f$ will be a bit different: it will have to take continuous coordinates as inputs, but output just one of two things: Goal or No Goal. In other words, our final predictive model should look like
+$$
+\hat{Y} = \begin{cases} \text{Goal} & \text{ if X is } G  \\
+\text{Not Goal} & \text{ if X is in } \bar{G} \end{cases}
+$$
+
+where $G$ is some region of $(x,y)$ space and $\bar{G}$ is its complement. Such problems fundamentally differ from those encountered in Modules 1-2 (regression problems) and are called **classification** problems (you can think of Goal and Not Goal as two classes in which we want to split the observations). When the response is binary (like above) the goal is to split the predictor space into two decision regions ($G$ and $\bar{G}$) where we will respectively predict goals and misses. If we plot the data based on position and color the points by goal, we can see there will be no perfect way to do this, but there are some clustering of orange and black so maybe we have some hope of beating the "always guess miss model". 
+
+```{r}
+womenShots %>% ggplot(aes(x=xj,y=yj,col=Goal))+geom_point()+
+  scale_color_manual(values=c("#FF671D","black"))+
+  labs(x="Horizontal Distance from Goal",y='vertical Distance from Goal')
+```
+
+## Measuring Accuracy
+
+Before we move on, we should discuss what we mean by "beat the always guess miss model" on two levels:
+
+* What do we mean by "beat"?
+* What is the "always guess miss model"?
+
+To answer the first question, we need to define a metric for assessing how well our model fits the data. The most obvious is accuracy:
+$$
+accuracy = \frac{1}{n} \sum_{i=1}^n (\hat{y}_i ==y_i) 
+$$
+The model with the higest accuracy wins. Usually, to keep the things consistent with  regression, instead of maximizing the accuracy, we minimize the error rate
+$$
+ER = 1 - accuracy
+$$ 
+(kind of like we minimize the mean squared error in regression). We'll discuss some issue with error rate later, but for now it will work.
+
+Now, to explain the "always guess miss model", first note that the majority of shots (about 63%) were misses:
+
+```{r}
+sum(womenShots$Goal=="Not Goal")/length(womenShots$Goal)
+```
+
+Therefore, it is not enough for the error rate of our model to be lower than 50% as one might hope for in coin toss scenarios. We need to beat the model that will always predict $\hat{Y}$ = Not Goal for any value of $X$. This is kind of like the null model in regression; in absence of a relationship between $X$ and $Y$, we might as well guess the most likely value of $Y$ every time.
+
+We're going to come back to the women's shot data later, but first we discuss a simpler toy example with fake data.
+
+## Time for more Fake News
+
+We are going to generate our fake data in the following way: 
+
+* We start by choosing independent and randomly generated $x$ and $y$ coordinates in the unit cube $0 \leq x,y \leq 1$
+* We assign each observation to a class based on the following rule: 
+    + if $x < y^2$ then there is a 90% chance the point $(x,y)$ will belong to class $A$ and a 10% chance it will belong to class $B$ 
+    + if $x \geq y^2$ then there is a 10% chance the point $(x,y)$ will belong to class $A$ and a 90% chance it will belong to class $B$
+    
+Here is the code with a plot: 
+
+```{r}
+set.seed(44)
+# runif generates random numbers between 0 and 1
+df=data.frame(x=runif(1000),y=runif(1000),class=NA)
+values = c("A", "B")
+p1 = c(0.9, 0.1) # Class probs for x < y^2
+p2 = c(0.1, 0.9) # class probs for x >= y^2
+condition = df$y < df$x^2 # Identify rows where y <x^2
+
+# Sample classes based on condition
+df$class = ifelse(condition,
+                  sample(
+                    values, sum(condition), 
+                    prob = p1, replace = TRUE
+                    ),
+                   sample(values, sum(!condition),
+                          prob = p2, replace = TRUE
+                          )
+                  )
+df %>% ggplot(aes(x=x,y=y,col=class))+
+  geom_point()+
+  stat_function(fun=function(x) x^2,colour="black")+
+  scale_color_manual(values=c("#0072B2","#E69F00"))
+
+```
+
+Clearly, if I want to GUESS the class $A$ or $B$ of a new data point, then I would guess class A if $y < x^2$ and guess $B$ otherwise. This type of prediction rule is called a Bayes Classifier^[In general, a Bayes classifier is one which picks the class that is most likely for the given region. If you took Math 131, the name is indeed related to Bayes rule although in this example, we don't need it because we are given $P(A|(x,y) \in R)=0.9$ and $P(B|(x,y) \in R)=0.1$ where $R$ is the region where $y < x^2$ and the reverse values for $\bar{R}$ so we know which class is most likely for $R$ and $\bar{R}$. However, in many real world examples, like spam detection, Bayes' formula is instead used to estimate these conditional probabilities]; see Section 2.2.3 of the book for further details. The error rate in our example should be about 10%. Let's check it for our data:
+
+```{r}
+df$predict=ifelse(df$y<df$x^2,"A","B")
+sum(df$predict!=df$class)/1000
+```
+
+Yep, pretty close to 0.1. 
+
+However, the problem is we don't usually get to see the parabola in real data sets. We instead just see
+
+```{r}
+df %>% ggplot(aes(x=x,y=y,col=class))+geom_point()+
+  scale_color_manual(values=c("#0072B2","#E69F00"))
+  
+
+```
+
+and we have to guess how to divide our space in the best way possible to minimize the error rate of our predictions. That's where our first realistic classification algorithm comes in: when in doubt, cheat off your neighbors.
+
+## K-Nearest Neighbors
+
+The K-Nearest Neighbors (KNN) algorithm predicts the class of a new observation by looking at the classes of it K-nearest neighbors in the training data and deciding to "follow the crowd" (i.e. adopt the most commonly occurring class as its own). The hyper-parameter^[Hyperparameters, as opposed to parameters, are values set before the training process begins. They are used to control the learning process itself, but they are not learned from the data and don't have any real world meaning for the variables in your dataset.] $K$ can be any whole number from 1 up to the whole sample size and "nearest" is defined in terms of (Euclidean) distance.  
+
+To illustrate the use of KNN, let's split our fake data into training and testing sets using a 70/30 split. The KNN function will then apply KNN to predict the class of the testing set observations based on their nearest neighbors in the training set data. We'll start with K=5 neighbors. 
+
+```{r}
+library(class)
+
+s=sample(1:1000,700)
+train=df[s,]
+test=df[-s,]
+fake_knn=knn(train[,c("x","y")],test[,c("x","y")],cl=train$class,k=5)
+head(fake_knn)
+```
+
+The head function shows the first six predictions of fake_knn. To compute the error rate,
+
+```{r}
+sum(fake_knn!=test$class)/length(test$class)
+```
+
+Pretty close to the true expected error rate of 0.1! Here is a more detailed plot of what we would predict if we use our original df as the training set, but include a finer grid of points for the test set (this is called a plot of the decision regions):
+
+```{r}
+    x <- seq(0,1,by=0.01)
+    y <- seq(0,1,by=0.01)
+    new_df <- expand.grid(x=x, y=y)
+    new_df$predict=knn(df[,c("x","y")],new_df[,c("x","y")],cl=df$class,k=5)
+    new_df %>% ggplot(aes(x=x,y=y,col=predict))+geom_point(size=3)+
+  scale_color_manual(values=c("#0072B2","#E69F00"))
+      
+```
+
+Notice that it almost picks up the splitting parabola but also leaves some islands of As and Bs to fend for themselves.
+
+## Why does K matter? 
+
+Suppose we compute the test error rate for the previous example in three different cases:
+
+* K=1
+* K=5
+* K=350
+
+In other words, the first case will predict the class based on looking at just one neighbor, the second will look at 5, and the last will look at half the data. We already fit the first, so lets do the other two.
+
+
+```{r}
+fake_knn1=knn(train[,c("x","y")],test[,c("x","y")],cl=train$class,k=1)
+fake_knn350=knn(train[,c("x","y")],test[,c("x","y")],cl=train$class,k=350)
+e1=sum(fake_knn1!=test$class)/length(test$class)
+e5=sum(fake_knn!=test$class)/length(test$class)
+e350=sum(fake_knn350!=test$class)/length(test$class)
+c(e1,e5,e350)
+```
+
+Notice that the error rates are higher for K=1 and K=350. This sort of "U" shaped dependence of model accuracy on the choice of K is very common.
+
+* When K is really small, the model doesn't use enough information
+* When K is really large, the model uses too much information
+
+Maybe that's all you need to know, but there is a lot more going on here in terms of what the book describes as "model flexibility" and the "bias-variance tradeoff" which I will try to do justice to here, but suggest you read Section 2.2.2 for more. 
+
+When K=1, the decision rule is extremely "flexible": it tries very hard to contort itself to the training set at the expense of exploiting any patterns in A or B rates which may be occurring. For example, let's say I regenerate a new training set of size 1000 and look at the decision regions for the fake data with both K=1 models:
+
+```{r}
+df2=data.frame(x=runif(1000),y=runif(1000),class=NA)
+values=c("A","B")
+p1=c(0.9,0.1)
+p2=c(0.1,0.9)
+n1=sum(df2$y < df2$x^2)
+df2$class[df2$y < df2$x^2]=sample(values,n1,prob=p1,replace=TRUE)
+df2$class[df2$y >= df2$x^2]=sample(values,1000-n1,prob=p2,replace=TRUE)
+new_df$predict11=knn(df[,c("x","y")],new_df[,c("x","y")],cl=df$class,k=1)
+new_df$predict12=knn(df2[,c("x","y")],new_df[,c("x","y")],cl=df2$class,k=1)
+new_df %>% ggplot(aes(x=x,y=y,col=predict11))+geom_point(size=3)+
+  scale_color_manual(values=c("#0072B2","#E69F00"))
+new_df %>% ggplot(aes(x=x,y=y,col=predict12))+geom_point(size=3)+
+  scale_color_manual(values=c("#0072B2","#E69F00"))
+
+```
+
+They are both really holey, holey, holey^[Queue the hymnal William.] and prediction regions are all over the place. In this case, we say that the classification scheme has "high variance". In contrast, for K=350, the regions are almost identical:
+
+```{r}
+new_df$predict3501=knn(df[,c("x","y")],new_df[,c("x","y")],cl=df$class,k=350)
+new_df$predict3502=knn(df2[,c("x","y")],new_df[,c("x","y")],cl=df2$class,k=350)
+new_df %>% ggplot(aes(x=x,y=y,col=predict3501))+geom_point(size=3)+
+  scale_color_manual(values=c("#0072B2","#E69F00"))
+new_df %>% ggplot(aes(x=x,y=y,col=predict3502))+geom_point(size=3)+
+  scale_color_manual(values=c("#0072B2","#E69F00"))
+```
+
+But now we have another problem: the prediction regions for the two classes look nothing like they should! That's because when K is large, the model becomes more biased by trying to fit everything into neat boxes (go with this half or that half). The model is too inflexible to changes in the data. To summarize,
+
+* When K is too small, KNN is too flexible with high variance
+* When K is too large, KNN is too inflexible with high bias
+
+Typically, more complicated decision regions (like what we see when K=1) have low bias, high variance while overly simple decision regions (like K=350) have high bias, low variance. As a general rule
+
+* Increased flexibility leads to higher variance and lower bias. 
+
+Ideally, we would like to control both bias and variance, but it usually isn't possible. Instead, we have to find a sweet spot in the middle that balances the two errors. 
+
+Now how do you find the optimal K in between? Honestly, its usually trial and error (hopefully with some smart programming like a for loop to run through different values). We'll talk more about R functions for this later when we do cross-validation, but until then, here is a brute force approach to optimal K in this problem, using the original training testing set
+
+```{r}
+fits=data.frame(K=1:100,er=NA)
+for (i in 1:100){
+pred=knn(train[,c("x","y")],test[,c("x","y")],cl=train$class,k=fits$K[i])  
+ fits$er[i]=sum(pred!=test$class)/length(test$class) 
+}
+fits %>% ggplot(aes(x=K,y=er))+geom_line()
+```
+
+It looks like 
+
+```{r}
+fits$K[which.min(fits$er)]
+```
+
+was the optimal value here. Different seeds might change the optimal $K$, but it always seems to be in the middle 10-25 range range^[I also increased $K$ to as much as 350 and the error rate continued to increase throughout this range, but it was too slow to compile. Not as slow as Pranav's Miguel sort, but slow enough.]. 
+
+## Next Up
+
+$K$-Nearest Neighbors generates some pretty pictures and its a powerful idea, but it can be difficult to use it to gain insights into how your predictors are actually impacting your outcome. For comparison, in a linear model, the slopes $\beta_k$ tell you how the outcome responds to changes in the predictor. There are no direct analogs here. In fact there are not really any parameters estimated in KNN which is why it is referred to as a nonparametric model. Next time we'll discuss logistic regression which models the odds of "success" in binary models as a function of the predictors.
+
+## Optional Section for Crystal who doesn't like to cheat on the random seed
+
+Instead of relying on a specific training-testing split, you can use a technique called "cross-validation" to split your data into $k$-folds and give each a turn as the test set (the remaining $k-1$ form the training data). We'll get more into this later, but below is a function which will perform cross-validation on $K$ nearest neighbors in R
+
+```{r}
+# kfoldCV function performs k-fold cross-validation using the KNN algorithm
+kfoldCV = function(df, pred_locs, response_loc, k, K) {
+  # Arguments:
+  # df: The data frame containing the dataset.
+  # pred_locs: A vector or list of column names (or indices) of the predictor variables.
+  # response_loc: The column name (or index) of the response variable.
+  # k: The number of folds for cross-validation.
+  # K: The number of neighbors to consider in the k-NN algorithm.
+  
+  # Initialize a vector to store error rates for each fold
+  err_rate = numeric(k)
+  
+  # Get the number of rows in the dataset
+  n = nrow(df)
+  
+  # Calculate the number of observations per fold - might lose some if n is not a multiple of k
+  nperfold = floor(n / k)
+  
+  # Randomly shuffle the dataset rows
+  s = sample(n)
+  
+  # Perform k-fold cross-validation
+  for (j in 1:k) {
+    # Define the indices for the current fold's test data
+    fold = s[nperfold * (j - 1) + (1:nperfold)]
+    
+    # Create the training and test data sets based on the fold indices
+    train = df[-fold, ]
+    test = df[fold, ]
+    
+    # Apply k-NN model to the test data and predict the response
+    yhat = as.character(knn(train[, pred_locs], test[, pred_locs], cl = train[, response_loc], k = K))
+    
+    # Calculate the error rate for this fold and store it in the err_rate vector
+    err_rate[j] = sum(yhat != test[, response_loc]) / nperfold
+  }
+  
+  # Return the mean error rate across all folds
+  mean(err_rate)
+}
+
+```
+
+Here is an example of how to use it to calculate the errors rates for $K=1:20$ with $k=10$ folds:
+
+```{r}
+fits=data.frame(K=1:20,er=NA)
+for (i in 1:20){
+ fits$er[i]=kfoldCV(df,c(1,2),c(3),10,fits$K[i])
+}
+fits %>% ggplot(aes(x=K,y=er))+geom_line()
+```
