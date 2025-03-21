@@ -1,0 +1,34 @@
+---
+title: "class_feb28"
+author: "Gafur Mammadov"
+date: "2025-02-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+```{r}
+url = "https://www.statlearning.com/s/Credit.csv"
+Credit = read.csv((url))
+head(Credit)
+credit_full_lm = lm(Balance~., data = Credit)
+summary(Credit)
+```
+
+
+### Backward selection feature selection
+```{r}
+credit_reduced = update(credit_full_lm, .~. -Education-Region-Married-Own)
+summary(credit_reduced)
+```
+
+### Forward selection
+```{r}
+library(broom)
+summary_reduced = tidy(credit_reduced)
+summary_reduced$p.values
+
+```

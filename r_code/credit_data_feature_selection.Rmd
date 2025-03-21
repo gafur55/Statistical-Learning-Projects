@@ -1,0 +1,75 @@
+---
+title: "groupwork9"
+author: "Gafur Mammadov"
+date: "2025-03-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(leaps)
+credit <- read.csv("~/Documents/math133/datasets/Credit.csv")
+```
+
+
+```{r}
+credit$Student <- ifelse(credit$Student == "Yes", 1, 0)
+credit$Own <- ifelse(credit$Own == "Yes", 1, 0)
+credit$Married <- ifelse(credit$Married == "Yes", 1, 0)
+credit$Region <- as.numeric(factor(credit$Region, levels = c("East", "South", "West")))
+```
+
+## Question 1
+Income and Rating were selected for the best 2 feature model.
+```{r}
+formula = as.formula(paste("Balance ~ ", paste(names(credit)[0:10], collapse= "+")))
+credit_regfit = regsubsets(formula, data=credit, nvmax = NULL)
+summary(credit_regfit)
+```
+
+## Question 2, 3
+I think BIC and Cp are both choosing 6 variable model which are:  Income, Limit, Rating, Cards, Age, Student
+```{r}
+par(mfrow=c(2,2))
+sum.fit.full=summary(credit_regfit)
+plot(1:10,sum.fit.full$cp,type="l",col="black",xlab="# Of parameters",ylab="Mallow's Cp")
+plot(1:10,sum.fit.full$bic,type="l",col="black",xlab="# Of parameters",ylab="BIC")
+plot(1:10,sum.fit.full$rsq,type="l",col="black",xlab="# Of parameters",ylab="R^2")
+plot(1:10,sum.fit.full$adjr2,type="l",col="black",xlab="# Of parameters",ylab="Adjusted R^2")
+    
+print(sum.fit.full$cp)
+print(sum.fit.full$bic)
+coef(credit_regfit,id=6)
+```
+
+## Question 4 
+looCV is also choosing 6 variable model with Income, Limit, Rating, Cards, Age, Student
+```{r}
+
+#loocv function
+looCV=function(fla,df){
+  yhat=numeric(nrow(df))
+  
+  for (j in 1:nrow(df)){
+    train=df[-j,]
+    train_lm=lm(fla,data=train)
+    yhat[j]=predict(train_lm,newdata=df[j,])
+  }
+  
+  y=df[[all.vars(fla)[1]]]
+  sqrt(mean((y-yhat)^2))
+}
+
+
+rmse=numeric(10)
+for (i in 1:10){
+formulas = as.formula(paste("Balance ~ ",
+                            paste(names(coef(credit_regfit,id=i))[2:(i+1)], 
+                                  collapse= "+")))
+rmse[i]=looCV(formulas, credit)
+}
+plot(1:10, rmse, color="black", xlab="Number of Terms")
+
+print(rmse)
+```

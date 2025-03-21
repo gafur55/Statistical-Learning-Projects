@@ -1,0 +1,140 @@
+---
+title: "module4"
+author: "Gafur Mammadov"
+date: "2025-03-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+Colleges2015 <- read.csv("~/Documents/math133/datasets/Colleges2015.csv", header=TRUE)
+```
+
+```{r}
+colleges2015_clean = drop_na(Colleges2015)
+colleges2015_clean = colleges2015_clean %>% select(-GraduationRate4Yr, -instnm)
+colleges2015_clean = colleges2015_clean[-1, ]
+head(colleges2015_clean)
+```
+
+```{r}
+set.seed(123)
+n <- nrow(colleges2015_clean)
+train_indices <- sample(1:n, 400)
+train_data <- colleges2015_clean[train_indices, ]
+test_data <- colleges2015_clean[-train_indices, ]
+
+head(train_data)
+```
+
+## Question1
+```{r}
+formula = as.formula(paste("GraduationRate6Yr ~", paste(names(train_data)[2:15], collapse= "+")))
+library(leaps)
+colleges_regfit=regsubsets(formula, data=train_data, nvmax = NULL)
+reg_summary = summary(colleges_regfit)
+summary(colleges_regfit)
+```
+
+```{r}
+best_size <- which.min(reg_summary$bic)
+selected_vars <- names(coef(colleges_regfit, best_size))[-1]  # remove intercept
+
+formula_selected <- as.formula(paste("GraduationRate6Yr ~", paste(selected_vars, collapse = "+")))
+final_lm <- lm(formula_selected, data = train_data)
+
+pred_regfit <- predict(final_lm, newdata = test_data)
+
+sqrt(mean((test_data$GraduationRate6Yr - pred_regfit)^2))
+selected_vars <- names(coef(colleges_regfit, best_size))[-1]  # remove intercept
+print(selected_vars)
+```
+
+## Question 2
+```{r}
+library(caret)
+train_data$GraduationRate6Yr <- as.numeric(train_data$GraduationRate6Yr)
+test_data$GraduationRate6Yr <- as.numeric(test_data$GraduationRate6Yr)
+
+college_train_lm = train(
+  GraduationRate6Yr ~ .,        
+  data = train_data,  
+  method = "lm", 
+  trControl = trainControl(
+    method = "cv",
+    number = 10
+  )
+)
+
+pred_lm <- predict(college_train_lm, newdata = test_data)
+
+library(Metrics)
+rmse(test_data$GraduationRate6Yr, pred_lm)
+
+```
+
+## Question 3
+
+```{r}
+library(glmnet)
+y = as.numeric(train_data$GraduationRate6Yr)
+formula = as.formula(paste("GraduationRate6Yr ~ ", paste(names(train_data)[2:15], collapse= "+")))
+
+X = model.matrix(formula,data=train_data)[,-1]
+
+cv.ridge=cv.glmnet(X, y, alpha=1, nfolds = 10)
+plot(cv.ridge)
+
+ridge.opt = glmnet(X, y, lambda = cv.ridge$lambda.min, alpha=1)
+coef(ridge.opt)
+```
+
+
+```{r}
+# Create X matrix for test data
+X_test = model.matrix(formula, data = test_data)[,-1]
+
+# Predict on test set using ridge
+ridge_preds = predict(ridge.opt, s = cv.ridge$lambda.min, newx = X_test)
+
+# Calculate RMSE
+rmse(test_data$GraduationRate6Yr, ridge_preds)
+
+```
+
+
+
+
+## Question 4
+
+
+```{r}
+library(glmnet)
+y = as.numeric(train_data$GraduationRate6Yr)
+formula = as.formula(paste("GraduationRate6Yr ~ ", paste(names(train_data)[2:15], collapse= "+")))
+
+X = model.matrix(formula,data=train_data)[,-1]
+
+cv.ridge=cv.glmnet(X, y, alpha=0, nfolds = 10)
+plot(cv.ridge)
+
+ridge.opt = glmnet(X, y, lambda = cv.ridge$lambda.min, alpha=0)
+coef(ridge.opt)
+```
+
+
+```{r}
+# Create X matrix for test data
+X_test = model.matrix(formula, data = test_data)[,-1]
+
+# Predict on test set using ridge
+ridge_preds = predict(ridge.opt, s = cv.ridge$lambda.min, newx = X_test)
+
+# Calculate RMSE
+rmse(test_data$GraduationRate6Yr, ridge_preds)
+
+```
+
+
+### Based on the RMSE results, Ridge regression has the lowest RMSE with  9.765799.The Larger the coefficient, more important that variable becomes. That's why, student-to-faculty ratio is the most imoprtant.

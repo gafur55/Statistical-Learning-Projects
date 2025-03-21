@@ -1,0 +1,167 @@
+---
+title: "Subset Selection"
+author: "John Mayberry"
+date:  "`r Sys.Date()`"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning=FALSE)
+library(tidyverse)
+election2016 <- read.csv("~/Documents/math133/datasets/election2016.csv")
+```
+
+## Introduction
+
+The ideal algorithm for subset selection of features is as follows
+
+* Fit all possible models that involve subsets of predictors.
+* Choose the one which minimizes some reasonable metric for model validation. 
+
+When fitting ALL possible models is cumbersome, there are a few alternatives:
+
+* Backwards Selection: Start with full model and successively remove variables
+* Forwards selection: Start with single variable models, add second to the best, and so on.
+* Mixed selection: some combination of the two above. 
+
+In these notes, we'll start by introducing you to the regsubsets from the leaps package, an automated function for performing exhaustive searches or any of the aforementioned types of selections. In addition to discussing this nifty package, we'll also discuss two methods for comparing models with different numbers of features: complexity based metrics and cross-validation (using the tools developed last class). We'll be using the election2016 dataset as an example with the outcome $Y$ = trump.vote and the eight features in columns 2-9 of the dataset. Without further adieu, let the games begin. 
+
+
+## The Leaps Package
+
+The leaps package has a very easy to use structure and nice output format. As long as you don't have too many variables (In the 20-50 range depending on your computing power - I know you'll push it to the limit Pranav), it works pretty well to use its default method of performing an exhaustive search of all possible models. For each $q = 1,2,...,p$ where $p$ is the number of predictors, it will return the best model with $q$ predictors (based on RMSE). Here is what it looks like for Trump.vote
+
+```{r}
+formula = as.formula(paste("trump.vote ~ ", paste(names(election2016)[2:9], collapse= "+")))
+library(leaps)
+trump_regfit=regsubsets(formula,data=election2016,nvmax = NULL)
+summary(trump_regfit)
+```
+
+To interpret this, lets start by looking at row 1 which has a * below non.citizen. This means that of all possible single predictor models for trump.vote, the one using non.citizen was best. The second row says that the best model with two predictors uses non.citizen and median.income and so on.
+
+Now what do we mean by "best"? Well, when comparing two models with the same number of predictors (like deciding which siingle variable model to use), regsubsets just uses least squares (i.e. SSE which is equivalent to using MSE, RMSE, or $R^2$ - we'll call these least squares based metrics for he rest of the notes). However, when you are comparing two models with a different number of predictors, its not so simple because the models with more predictors have an automatic advantage. You can't increase any of the above mentioned metrics by adding more predictors so it looks like its always best to add as many as possible (which we know is bullshit). There are two voices then
+
+1. Use cross-validated versions of the metrics (like in the last notes)
+2. Use a complexity based metric which balances least squares with number of predictors
+
+
+Regsubsets uses three different types of complexity metrics: Mallow's Cp, Bayesian Information Criteria, and Adjusted R^2. All three are based on modified version of least squares metrics with a penalty for having more predictors. The former two look at an error term proportional to:
+$$
+SSE + C(p)
+$$
+where $C(p)$ is a "cost" function that increases with the number of parameters $p$ in the model and hence, penalizes complex models (those with higher $p$) more heavily.  
+
+Most complexity metrics differ only the proportionality constants and their choice of $C(p)$. For example, 
+
+* Mallows Cp^[which is equivalent to the more commonly used Akaike Information Criteria or AIC] uses a penalty proportional to $2 p$ 
+* Bayesian Information Criteria (BIC) uses a penalty proportional to $ (\log n) p$ (and hence penalizes excess parameters more steeply than Mallow's)
+
+The third, adjusted $R^2$, is slightly different in that it calculates a degree adjusted form of 
+$$
+R^2 = 1-SSE/SST.
+$$
+by doing
+$$
+Adjusted \; R^2 = 1 - \frac{SSE/(n-p-1)}{SST/(n-1)}
+$$
+
+Here are plots of all three for our trump model with the actual R^2 for comparison:
+
+```{r}
+par(mfrow=c(2,2))
+sum.fit.full=summary(trump_regfit)
+plot(1:8,sum.fit.full$cp,type="l",col="black",xlab="# Of parameters",ylab="Mallow's Cp")
+plot(1:8,sum.fit.full$bic,type="l",col="black",xlab="# Of parameters",ylab="BIC")
+plot(1:8,sum.fit.full$rsq,type="l",col="black",xlab="# Of parameters",ylab="R^2")
+plot(1:8,sum.fit.full$adjr2,type="l",col="black",xlab="# Of parameters",ylab="Adjusted R^2")
+```
+
+With Mallow's and BIC, the goal is minimization. BIC suggests the three variable model is best while Mallow's suggests six. For adjusted R^2, bigger is better which means it suggests 6-7 parameters. To find the coefficients in the best model with a specified number of terms (eg. six), use the id argument in coef: 
+
+```{r}
+coef(trump_regfit,id=6)
+
+```
+
+Note that you can do backwards selection by changing the method argument. This will result in different models because it can never add back something it has previously dropped:
+
+```{r}
+trump_regfit=regsubsets(formula,data=election2016,nvmax = NULL,method="backward")
+summary(trump_regfit)
+```
+
+Forward selection also works: 
+
+```{r}
+trump_regfit=regsubsets(formula,data=election2016,nvmax = NULL,method="forward")
+summary(trump_regfit)
+```
+
+The final options sequential replacement ("seqrep") is a mix of forward and backward selection. It starts moving forwards by adding the best single variable model. But then after it adds a second variable, it checks if dropping the first and adding a different variable would be better. You can see in the application here that it ends up dropping non.citizen after the first step:
+
+```{r}
+trump_regfit=regsubsets(formula,data=election2016,nvmax = NULL,method="seqrep")
+summary(trump_regfit)
+```
+
+Take some time to further look at the differences in the model outputs to get some intuition about what's going on. I think that when possible, its best to use the exhaustive option and then seqrep and as an alternative if the processing time is too long. 
+
+## Connection to last class: Using Cross-Validation to decide between models.
+
+Now the fun begins. Let's reload our looCV routine from last class. 
+
+
+```{r}
+looCV=function(fla,df){
+yhat=numeric(nrow(df))
+for (j in 1:nrow(df)){
+  train=df[-j,]
+  train_lm=lm(fla,data=train)
+  yhat[j]=predict(train_lm,newdata=df[j,])
+}
+y=df[[all.vars(fla)[1]]]
+sqrt(mean((y-yhat)^2))
+}
+```
+
+We would like to apply this to each of the eight submodels in the output of regsubsets. Doing so requires a little more understanding of how to extract terms from that model. Recall that the command
+
+```{r}
+coef(trump_regfit,id=3)
+```
+
+returns the coefficients from the best three variable model with the intercept first. Thus, we can loop over this index to compare models of different sizes:
+
+```{r}
+rmse=numeric(8)
+for (i in 1:8){
+formulas = as.formula(paste("trump.vote ~ ",
+                            paste(names(coef(trump_regfit,id=i))[2:(i+1)], 
+                                  collapse= "+")))
+rmse[i]=looCV(formulas,election2016)
+}
+plot(1:8,rmse,color="black",xlab="Number of Terms")
+```
+
+Notice that the results here support use of the three term model. 
+
+## Deciding on the final model
+
+For the election2016 data, many of the different approaches led to different "best" models:
+
+* Using an exhaustive or seqrep search with BIC or using a forward search with pretty much any metric says the model with three predictors median income, non-citizen, and income inequality was best. LOO Cross-validation says the same. 
+* Using an exhaustive or seqrep search with Mallow's or Adjusted R^2 or AIC says the six predictor model with median income, metro, high school, white poverty, income inequality, and non-white was best
+
+In this type of situation, I tend to lean towards choosing the simplest possible optimal model (in this case the three variable one), but I am not always sure this is the right choice and I usually try and think about WHY I might be getting different answers. Here, the R^2 value for the full model is pretty decent (about 65%) which means that we have a decent set of predictors as a whole, but I think the problem here is multicolinearity. There are some pretty high correlations between the predictors as can be shown with the ggpairs function
+
+```{r}
+library(GGally)
+ggpairs(election2016[,2:9])
+```
+
+Of particular relevance here is the fact that non-citizen is very heavily correlated with metro and non-white. So the former could be serving as a surrogate summary measure for the latter two in the simpler model (or conversely, the latter two could be breaking up the effects of the former). Also notice that median income is heavily correlated with high school and white-poverty, both of which show up in the more complicated model and hence, dropping those latter two doesn't mean much if we penalize models more heavily for extra parameters (like in BIC or forward selection).
+
+So the moral is, don't choose: decide^[I don't knows what the fuck that means, but it sounds provacative.]. 
