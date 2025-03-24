@@ -1,0 +1,64 @@
+---
+title: "groupwork10"
+author: "Gafur Mammadov"
+date: "2025-03-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+pitchers <- read.csv("~/Documents/math133/datasets/pitchers.csv")
+```
+
+## Question 1
+```{r}
+pcs = princomp(pitchers[,6:29],cor=TRUE)
+summary(pcs)
+
+scree = data.frame(Comp.Num=1:24, Std.Dev=summary(pcs)$sdev)
+
+ggplot(scree, aes(x=Comp.Num, y=Std.Dev)) + geom_point(shape=1)+geom_line()+
+  scale_x_continuous(name="Number of Principal Components", breaks=1:24,label=1:24)
+```
+
+
+There is a big drop off from comp 1 to 2. Drop from 2 to 3 is also considered big but later it slows down.
+
+
+## Question 2
+```{r}
+pcs$loadings[,1:2]
+```
+In first component, the highest weighted variable is IPouts. W, L, GS, H, ER, HR, BB, SO are also close to IPOUTS so we can consider them important. The rest of the variables can ...... "FUCK OFFFFFFF!!!!!!!"
+For Comp2, GF has heaviest weight. -0.551 Would mean that it is very below  average. G and SV are also important variables I guess.
+
+I sadly don't understand baseball but chatgpt explained me this about these components:
+
+Component 1:
+  This component mostly shows how much a pitcher is used.
+  Pitchers with high scores here:
+    Pitch a lot of innings.
+    Start many games.
+    Face a lot of batters.
+    Collect lots of wins, losses, strikeouts, and walks.
+
+So, Component 1 = "Workload" or "Starting Pitcher factor" (mostly starters who pitch a lot).
+
+Component 2:
+  This one separates pitching roles:
+    Relievers/Closers: Low scores here (they tend to finish games and get saves).
+    Starters or long relievers: Higher scores here.
+    Also, some stats like ERA and opponent batting average (BAOpp) are more related to performance and go slightly positive here.
+    So, Component 2 = "Reliever vs. Starter" factor.
+
+
+## Question 3
+
+```{r}
+pitchersPC=cbind(pitchers, pcs$scores[,1:2])
+ggplot(pitchersPC, aes(x=Comp.1,y=Comp.2,label=playerID))+geom_point(shape=1)+geom_text()
+```
+
+This plot was very bad but I think we can say that there 3 major clusters. Players with high comp2 and negative comp1. Players in negative comp2 and kind of zero comp1. 
+And people with high comp1 and zero ish comp 2
