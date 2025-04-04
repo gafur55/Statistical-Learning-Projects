@@ -1,0 +1,102 @@
+---
+title: "module 5"
+author: "Gafur Mammadov"
+date: "2025-04-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+data("iris")
+```
+
+```{r}
+view(iris)
+```
+
+
+## Question 1
+
+```{r}
+k3clusters = kmeans(iris[,1:4],centers=3)
+k3clusters$cluster
+```
+
+```{r}
+table(k3clusters$cluster, iris$Species)
+```
+
+```{r}
+iris$Cluster3Final = k3clusters$cluster
+ggplot(iris, aes(x = Petal.Length, y = Petal.Width, color=as.factor(Cluster3Final)))+geom_point()+scale_color_manual(values=c("#56B4E9","#117A65","#E69F00"),name="Cluster")
+```
+
+Setosa was perfectly separated, showing it’s very different from the others. Versicolor and Virginica got mixed up because their features are too similar. Overall, clustering worked great for Setosa but not as well for the other two.
+
+
+## Question 2
+
+```{r}
+iris_hc = hclust(dist(scale(iris[,1:4])), method="complete")
+plot(iris_hc, hang=-1, labels=iris$Species)
+```
+
+```{r}
+cluster1 = cutree(iris_hc, h=5)
+table(cluster1)
+```
+```{r}
+iris$ClusterHC3=cluster1
+ggplot(iris,
+       aes(x = Petal.Length, y = Petal.Width, label=Species, color=as.factor(ClusterHC3)))+
+  geom_point()+
+  geom_text()+
+  scale_color_manual(name="Cluster",values=c("#FF0000","#0015BC", "#800080"))
+```
+
+```{r}
+table(iris$ClusterHC3, iris$Species)
+```
+
+Hierarchical clustering separated Setosa almost perfectly, with only one sample misclassified. Versicolor and Virginica were more mixed, but most samples were still correctly grouped. This shows that Setosa is very distinct, while Versicolor and Virginica have more similar features, making them harder to separate.
+
+## Question 3
+
+```{r}
+iris_pca = princomp(iris[,1:4], cor = TRUE)
+summary(iris_pca)
+iris_pca$loadings[,1:2]
+```
+
+```{r}
+irisPC = cbind(iris, iris_pca$scores[,1:2])
+ggplot(irisPC, aes(x = Comp.1, y = Comp.2, label = Species)) +
+  geom_point(shape = 1) +
+  geom_label()
+```
+
+```{r}
+kmeans_pca = kmeans(irisPC[,c("Comp.1", "Comp.2")], centers=3)
+irisPC$ClusterPCA = kmeans_pca$cluster
+table(irisPC$ClusterPCA, irisPC$Species)
+```
+
+PCA revealed that Comp.1 is mainly influenced by Petal Length and Petal Width, while Comp.2 is driven by Sepal Width. The PCA plot of Comp.2 vs. Comp.1 shows clear separation of Setosa from the other species, with Versicolor and Virginica somewhat overlapping. Based on the PCA results, using K-means clustering on Comp.1 and Comp.2 would be an effective way to group the flowers into three clusters.
+
+
+```{r}
+correct_kmeans = 50 + 48 + 36  
+error_rate_kmeans = (150 - correct_kmeans) / 150
+error_rate_kmeans
+
+correct_hierarchical = 49 + 21 + 48  
+error_rate_hierarchical = (150 - correct_hierarchical) / 150
+error_rate_hierarchical
+
+correct_pca = 50 + 39 + 36 
+error_rate_pca = (150 - correct_pca) / 150
+error_rate_pca
+```
+
+K-means clustering had the lowest error rate (~10.7%), followed by PCA-based K-means (~16.7%), while hierarchical clustering had the highest error rate (~21.3%). Therefore, K-means clustering performed the best at predicting the iris species.
